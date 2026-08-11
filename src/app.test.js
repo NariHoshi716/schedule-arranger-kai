@@ -18,10 +18,8 @@ function mockIronSession() {
  
 // テストで作成したデータを削除
 async function deleteScheduleAggregate(scheduleId) {
-  await prisma.availability.deleteMany({ where: { scheduleId } });
-  await prisma.candidate.deleteMany({ where: { scheduleId } });
-  await prisma.comment.deleteMany({ where: { scheduleId } });
-  await prisma.schedule.delete({ where: { scheduleId } });
+  const { deleteScheduleAggregate } = require('./routes/schedules');
+  await deleteScheduleAggregate(scheduleId);
 }
 
 // フォームからリクエストを送信する
@@ -211,5 +209,57 @@ describe('/schedules/:scheduleId/users/:userId/comments', () => {
     const comments = await prisma.comment.findMany({ where: { scheduleId } });
     expect(comments.length).toBe(1);
     expect(comments[0].comment).toBe('testcomment');
+  });
+});
+
+
+describe('/schedules/:scheduleId/update', () => {
+  let scheduleId = '';
+  beforeAll(() => {
+    mockIronSession();
+  });
+
+  afterAll(async () => {
+    jest.restoreAllMocks();
+    await deleteScheduleAggregate(scheduleId);
+  });
+
+  test('予定が更新でき、候補が追加できる', async () => {
+    await prisma.user.upsert({
+      where: { userId: testUser.userId },
+      create: testUser,
+      update: testUser,
+    });
+
+    const app = require('./app');
+
+    const postRes = await sendFormRequest(app, '/schedules', {
+      scheduleName: 'テスト更新予定1',
+      memo: 'テスト更新メモ1',
+      candidates: 'テスト更新候補1',
+    });
+
+    const createdSchedulePath = postRes.headers.get('Location');
+    scheduleId = createdSchedulePath.split('/schedules/')[1];
+
+    const res = await sendFormRequest(app, `/schedules/${scheduleId}/update`, {
+      scheduleName: 'テスト更新予定2',
+      memo: 'テスト更新メモ2',
+      candidates: 'テスト更新候補2',
+    });
+
+    const schedule = await prisma.schedule.findUnique({
+      where: { scheduleId },
+    });
+    expect(schedule.scheduleName).toBe('テスト更新予定2');
+    expect(schedule.memo).toBe('テスト更新メモ2');
+
+    const candidates = await prisma.candidate.findMany({
+      where: { scheduleId },
+      orderBy: { candidateId: 'asc' },
+    });
+    expect(candidates.length).toBe(2);
+    expect(candidates[0].candidateName).toBe('テスト更新候補1');
+    expect(candidates[1].candidateName).toBe('テスト更新候補2');
   });
 });
