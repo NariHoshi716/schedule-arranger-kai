@@ -1,5 +1,7 @@
 'use strict';
 import $ from 'jquery';
+import 'bootstrap/dist/js/bootstrap.min.js';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 $('.availability-toggle-button').each((i, e) => {
   const button = $(e);
@@ -22,6 +24,9 @@ $('.availability-toggle-button').each((i, e) => {
         button.data('availability', data.availability);
         const availabilityLabels = ['欠', '？', '出'];
         button.text(availabilityLabels[data.availability]);
+        const buttonStyles = ['btn-danger', 'btn-secondary', 'btn-success'];
+        button.removeClass('btn-danger btn-secondary btn-success');
+        button.addClass(buttonStyles[data.availability]);
       });
   });
 });
