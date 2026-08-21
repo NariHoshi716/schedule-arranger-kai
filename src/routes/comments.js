@@ -68,6 +68,7 @@ app.post(
             userId,
             scheduleId,
           },
+        },
         update: data,
         create: data,
       });
