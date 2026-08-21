@@ -165,6 +165,57 @@ describe('/schedules/:scheduleId/users/:userId/candidates/:candidateId', () => {
 
     expect(await res.json()).toEqual({ status: 'OK', availability: 2 });
   });
+
+  test('参加可能人数の最多候補が表示される (同率1位は全件表示)', async () => {
+    await prisma.user.upsert({
+      where: { userId: testUser.userId },
+      create: testUser,
+      update: testUser,
+    });
+
+    const app = require('./app');
+
+    const postRes = await sendFormRequest(app, '/schedules', {
+      scheduleName: '集計表示テスト予定',
+      memo: '集計表示テストメモ',
+      candidates: '候補A\r\n候補B\r\n候補C',
+    });
+
+    const createdSchedulePath = postRes.headers.get('Location');
+    const aggregateScheduleId = createdSchedulePath.split('/schedules/')[1];
+
+    const candidates = await prisma.candidate.findMany({
+      where: { scheduleId: aggregateScheduleId },
+      orderBy: { candidateId: 'asc' },
+    });
+
+    await sendJsonRequest(
+      app,
+      `/schedules/${aggregateScheduleId}/users/${testUser.userId}/candidates/${candidates[0].candidateId}`,
+      { availability: 2 },
+    );
+    await sendJsonRequest(
+      app,
+      `/schedules/${aggregateScheduleId}/users/${testUser.userId}/candidates/${candidates[1].candidateId}`,
+      { availability: 2 },
+    );
+    await sendJsonRequest(
+      app,
+      `/schedules/${aggregateScheduleId}/users/${testUser.userId}/candidates/${candidates[2].candidateId}`,
+      { availability: 1 },
+    );
+
+    const res = await app.request(createdSchedulePath);
+    const body = await res.text();
+
+    expect(body).toMatch(/参加可能人数が最も多い候補日時/);
+    expect(body).toMatch(/候補A/);
+    expect(body).toMatch(/候補B/);
+    expect(body).not.toMatch(/候補C<\/span>/);
+    expect(body).toMatch(/1 人/);
+
+    await deleteScheduleAggregate(aggregateScheduleId);
+  });
 });
 
 
