@@ -157,6 +157,28 @@ app.get('/:scheduleId', scheduleIdValidator, async (c) => {
     userMap.set(a.user.userId, a.user);
   });
 
+  // 候補日程ごとの参加可能人数 (availability=2) を集計する。
+  const attendanceCountMap = new Map(
+    candidates.map((candidate) => [candidate.candidateId, 0]),
+  );
+  availabilities.forEach((a) => {
+    if (a.availability === 2) {
+      attendanceCountMap.set(
+        a.candidateId,
+        (attendanceCountMap.get(a.candidateId) ?? 0) + 1,
+      );
+    }
+  });
+
+  const maxAttendanceCount = Math.max(
+    0,
+    ...candidates.map((candidate) => attendanceCountMap.get(candidate.candidateId) ?? 0),
+  );
+  const bestCandidates = candidates.filter(
+    (candidate) =>
+      (attendanceCountMap.get(candidate.candidateId) ?? 0) === maxAttendanceCount,
+  );
+
   // 閲覧ユーザと、出欠を登録したユーザを合わせた全ユーザの配列を作る
   const users = Array.from(userMap.values());
 
@@ -192,6 +214,23 @@ app.get('/:scheduleId', scheduleIdValidator, async (c) => {
                 この予定を編集する <i class="bi bi-pencil"></i>
               </a>`
           : ''}
+        <h3 class="my-3">参加可能人数が最も多い候補日時</h3>
+        ${bestCandidates.length > 0
+          ? html`
+              <ul class="list-group my-3">
+                ${bestCandidates.map(
+                  (candidate) => html`
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                      <span>${candidate.candidateName}</span>
+                      <span class="badge bg-success rounded-pill">
+                        ${attendanceCountMap.get(candidate.candidateId) ?? 0} 人
+                      </span>
+                    </li>
+                  `,
+                )}
+              </ul>
+            `
+          : html`<p>候補日時がありません。</p>`}
         <h3 class="my-3">出欠表</h3>
         <div class="table-responsive">
           <table class="table table-bordered">
